@@ -1,0 +1,55 @@
+{
+    "name": "bidb97/laravel-query-explain",
+    "description": "Zero-runtime SQL EXPLAIN auditor for Laravel. Uses PHP 8 attributes and static analysis (AST) to visualize and optimize query plans without executing side effects.",
+    "keywords": [
+        "laravel",
+        "query",
+        "explain",
+        "performance",
+        "debugging",
+        "ast",
+        "static-analysis"
+    ],
+    "homepage": "https://github.com/bidb97/laravel-query-explain",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Bidb97",
+            "email": "mantisa1824@gmail.com",
+            "role": "Developer"
+        }
+    ],
+    "require": {
+        "php": "^8.2",
+        "illuminate/support": "^10.0|^11.0|^12.0",
+        "nikic/php-parser": "^5.0"
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^9.0|^10.0",
+        "orchestra/testbench": "^7.0|^8.0|^9.0|^10.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Bidb97\\QueryExplain\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Bidb97\\QueryExplain\\Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "test": "vendor/bin/phpunit",
+        "test-coverage": "vendor/bin/phpunit --coverage-html coverage"
+    },
+    "config": {
+        "sort-packages": true
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Bidb97\\QueryExplain\\QueryExplainServiceProvider"
+            ]
+        }
+    }
+}
