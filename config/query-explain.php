@@ -38,6 +38,20 @@ return [
 
     'middleware' => [
         \Bidb97\QueryExplain\Http\Middleware\Authorize::class
-    ]
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Scan Directories
+    |--------------------------------------------------------------------------
+    |
+    | These directories will be scanned for classes with QueryExplain attributes.
+    | You can add or remove directories as needed for your application.
+    |
+    */
+
+    'scan_dirs' => [
+        app_path()
+    ],
 
 ];

@@ -1,5 +1,7 @@
 <?php
 
+declare(strict_types = 1);
+
 namespace Bidb97\QueryExplain\Attributes;
 
 use Attribute;
@@ -11,7 +13,7 @@ use Attribute;
  * It enables zero-runtime SQL EXPLAIN auditing using static analysis.
  */
 #[Attribute(Attribute::TARGET_METHOD)]
-class QueryExplain
+final class QueryExplain
 {
     /**
      * Create a new QueryExplain attribute instance.
