@@ -1,5 +1,6 @@
 {
     "name": "bidb97/laravel-query-explain",
+    "version": "1.0.0",
     "description": "Zero-runtime SQL EXPLAIN auditor for Laravel. Uses PHP 8 attributes and static analysis (AST) to visualize and optimize query plans without executing side effects.",
     "keywords": [
         "laravel",
