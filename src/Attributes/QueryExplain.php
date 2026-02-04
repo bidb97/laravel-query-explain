@@ -12,7 +12,7 @@ use Attribute;
  * This attribute marks methods that should be analyzed for SQL queries.
  * It enables zero-runtime SQL EXPLAIN auditing using static analysis.
  */
-#[Attribute(Attribute::TARGET_METHOD)]
+#[Attribute(Attribute::TARGET_METHOD | Attribute::TARGET_FUNCTION)]
 final class QueryExplain
 {
     /**
@@ -22,6 +22,6 @@ final class QueryExplain
      * @return void
      */
     public function __construct(
-        private array $labels = []
+        private array $labels = [],
     ) {}
 }
