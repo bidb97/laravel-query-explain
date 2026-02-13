@@ -4,7 +4,9 @@ declare(strict_types = 1);
 
 namespace Bidb97\QueryExplain\Http\Controllers;
 
-use Bidb97\QueryExplain\Tools\Analyzer;
+use explain\src\Services\QueryExplainManager;
+use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 
 /**
  * QueryExplain Controller
@@ -15,36 +17,120 @@ use Bidb97\QueryExplain\Tools\Analyzer;
 class QueryExplainController
 {
     /**
-     * Display the queries analysis page.
+     * Display all queries found in the codebase
      *
-     * This method initiates the query analysis process by calling the Analyzer,
-     * which scans the codebase for methods marked with the QueryExplain attribute.
-     * Then returns the view that displays the collected query analysis data.
-     *
-     * @param  \Bidb97\QueryExplain\Tools\Analyzer  $analyzer
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\Contracts\View\View
+     * @param Request $request
+     * @param explain\src\Services\QueryExplainManager $queryExplainManager
+     * @return \Illuminate\Contracts\View\View|JsonResponse
      */
-    public function queries(Analyzer $analyzer)
+    public function queries(Request $request, QueryExplainManager $queryExplainManager)
     {
-        // Trigger the analysis of queries in the codebase
-        $analyzer->getQueries();
+        try {
+            $filters = [];
 
-        // Return the view that displays the query analysis results
-        return view('query-explain::queries');
+            // Add filters if provided
+            if ($request->has('classes')) {
+                $filters['classes'] = $request->input('classes');
+            }
+
+            $queries = $queryExplainManager->getQueries($filters);
+
+            // Return JSON if requested
+            if ($request->wantsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => true,
+                    'queries' => array_map(function($query) {
+                        return [
+                            'className' => $query->className,
+                            'methodName' => $query->methodName,
+                            'lineNumber' => $query->lineNumber,
+                            'label' => $query->label,
+                            'sqlQuery' => $query->sqlQuery,
+                            'explainResults' => $query->explainResults,
+                        ];
+                    }, $queries),
+                    'count' => count($queries),
+                ]);
+            }
+
+            // Return view for HTML requests
+            return view('query-explain::queries', [
+                'queries' => $queries,
+            ]);
+
+        } catch (\Throwable $e) {
+            if ($request->wantsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+
+            throw $e;
+        }
     }
 
     /**
      * Display a single query analysis.
      *
-     * This method handles the display of individual query analysis details.
-     * Currently, the implementation is pending and serves as a placeholder
-     * for future functionality to show detailed information about a specific query.
-     *
-     * @return void
+     * @param Request $request
+     * @param explain\src\Services\QueryExplainManager $queryExplainManager
+     * @param string $className
+     * @param string $methodName
+     * @param string $label
+     * @return JsonResponse|\Illuminate\Contracts\View\View
      */
-    public function query()
+    public function query(
+        Request $request,
+        QueryExplainManager $queryExplainManager,
+        string $className,
+        string $methodName,
+        string $label
+    )
     {
-        // TODO: Implement single query display functionality
-        // This method will eventually show detailed information about a specific query
+        try {
+            $query = $queryExplainManager->getQuery($className, $methodName, $label);
+
+            if (!$query) {
+                if ($request->wantsJson() || $request->is('api/*')) {
+                    return response()->json([
+                        'success' => false,
+                        'error' => 'Query not found',
+                    ], 404);
+                }
+
+                abort(404, 'Query not found');
+            }
+
+            // Return JSON if requested
+            if ($request->wantsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => true,
+                    'query' => [
+                        'className' => $query->className,
+                        'methodName' => $query->methodName,
+                        'lineNumber' => $query->lineNumber,
+                        'label' => $query->label,
+                        'sqlQuery' => $query->sqlQuery,
+                        'explainResults' => $query->explainResults,
+                    ],
+                ]);
+            }
+
+            // Return view for HTML requests
+            return view('query-explain::query', [
+                'query' => $query,
+            ]);
+
+        } catch (\Throwable $e) {
+            if ($request->wantsJson() || $request->is('api/*')) {
+                return response()->json([
+                    'success' => false,
+                    'error' => $e->getMessage(),
+                ], 500);
+            }
+
+            throw $e;
+        }
     }
 }

@@ -22,6 +22,6 @@ final class QueryExplain
      * @return void
      */
     public function __construct(
-        private array $labels = [],
+        public array $labels = [],
     ) {}
 }

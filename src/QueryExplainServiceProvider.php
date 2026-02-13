@@ -7,6 +7,7 @@ namespace Bidb97\QueryExplain;
 use Illuminate\Support\ServiceProvider;
 use PhpParser\ParserFactory;
 use PhpParser\Parser;
+use Bidb97\QueryExplain\Services\QueryExplainService;
 
 /**
  * QueryExplain Service Provider
@@ -31,6 +32,11 @@ class QueryExplainServiceProvider extends ServiceProvider
             __DIR__.'/../config/query-explain.php',
             'query-explain'
         );
+
+        // Register the QueryExplainService singleton
+        $this->app->singleton(QueryExplainService::class, function ($app) {
+            return new QueryExplainService();
+        });
     }
 
     /**
@@ -44,20 +50,16 @@ class QueryExplainServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        // Register the PHP parser as a singleton to reuse the same instance
         $this->app->singleton(Parser::class, function () {
             return (new ParserFactory())->createForNewestSupportedVersion();
         });
 
-        // Publish configuration file to allow user customization
         $this->publishes([
             __DIR__.'/../config/query-explain.php' => config_path('query-explain.php'),
         ], 'query-explain');
 
-        // Load the package routes for the query explain interface
         $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
 
-        // Load the package views with the 'query-explain' namespace
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'query-explain');
     }
 }

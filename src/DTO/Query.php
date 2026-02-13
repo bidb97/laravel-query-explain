@@ -12,5 +12,6 @@ readonly class Query
         public ?int $lineNumber,
         public string $label,
         public ?string $sqlQuery,
+        public ?array $explainResults = null,
     ) {}
 }

@@ -37,7 +37,7 @@ return [
     */
 
     'middleware' => [
-        \Bidb97\QueryExplain\Http\Middleware\Authorize::class
+        explain\src\Http\Middleware\Authorize::class
     ],
 
     /*

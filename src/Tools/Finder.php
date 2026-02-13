@@ -4,7 +4,8 @@ declare(strict_types = 1);
 
 namespace Bidb97\QueryExplain\Tools;
 
-use Bidb97\QueryExplain\Attributes\QueryExplain;
+use explain\src\Attributes\QueryExplain;
+use explain\src\DTO\TargetTransfer;
 use PhpParser\Node\Stmt\Class_;
 use PhpParser\Node\Stmt\Namespace_;
 use Symfony\Component\Finder\Finder as SymfonyFinder;
@@ -31,68 +32,68 @@ final class Finder
     )
     {}
 
+    public function getQueries(array $filters = []): \Generator
+    {
+        if (empty($filters)) {
+            $filters[] = "*.php";
+        }
+
+        yield from $this->scan($filters);
+    }
+
+    public function getQuery()
+    {
+
+    }
+
     /**
      * Scan configured directories for classes with QueryExplain attributes.
      *
-     * This method iterates through the configured scan directories, looking for PHP files
-     * that contain the QueryExplain attribute. For each matching file, it identifies
-     * the classes and methods annotated with the attribute and yields them for further analysis.
-     *
-     * @return \Generator  A generator yielding arrays with class reflection objects and their annotated methods
      */
-    public function scan(): \Generator
+    private function scan(array $filters): \Generator
     {
-        // Iterate through each directory specified in the configuration
         foreach (config('query-explain.scan_dirs') as $dir) {
 
-            // Configure the finder to look for PHP files containing the QueryExplain attribute
             $this->finder->files()
                 ->in($dir)
-                ->name("*.php")
+                ->name($filters)
                 ->contains(QueryExplain::class);
 
-            // Process each file found by the finder
             foreach ($this->finder as $file) {
 
-                $methods = [];
-
-                // Read the file content to check for the attribute presence
                 $content = file_get_contents($file->getRealPath());
                 if (!str_contains($content, QueryExplain::class)) {
                     continue;
                 }
 
-                // Extract the full class name from the file using AST parsing
-                $fullClassName = $this->getFullClassName($file);
+                $fullClassName = $this->getFullClassName($content);
 
-                // Skip if the class doesn't exist (e.g., it's in a different namespace or not loaded)
                 if (!class_exists($fullClassName)) {
                     continue;
                 }
 
-                // Create a reflection object for the class to analyze its methods
                 $reflection = new \ReflectionClass($fullClassName);
 
-                // Check each method in the class for the QueryExplain attribute
                 foreach ($reflection->getMethods() as $method) {
 
-                    // Get attributes matching the QueryExplain class
                     $target = $method->getAttributes(QueryExplain::class);
 
-                    // Skip methods that don't have the QueryExplain attribute
                     if (empty($target)) {
                         continue;
                     }
 
-                    // Add the method to our list of methods to analyze
-                    $methods[] = $method;
-                }
+                    $attribute = $target[0]->newInstance();
 
-                // Yield the class reflection and its annotated methods for processing
-                yield [
-                    'class' => $reflection,
-                    'methods' => $methods,
-                ];
+                    if (empty($attribute->labels)) {
+                        continue;
+                    }
+
+                    yield new TargetTransfer(
+                        class: $reflection,
+                        method: $method->getName(),
+                        labels: $attribute->labels
+                    );
+                }
             }
         }
     }
@@ -100,17 +101,13 @@ final class Finder
     /**
      * Extract the full class name from a PHP file using AST parsing.
      *
-     * This method parses the PHP file to extract the namespace and class name
-     * without relying on autoloading or class existence. This allows us to
-     * identify classes even if they're not currently loaded in the application.
-     *
-     * @param  \SplFileInfo  $file  The PHP file to extract the class name from
-     * @return string  The fully qualified class name (with namespace if present)
+     * @param string $fileContent
+     * @return string
      */
-    private function getFullClassName(\SplFileInfo $file): string
+    private function getFullClassName(string $fileContent): string
     {
         // Parse the file content into an Abstract Syntax Tree (AST)
-        $ast = $this->parser->parse(file_get_contents($file->getRealPath()));
+        $ast = $this->parser->parse($fileContent);
 
         $namespace = '';
         $className = '';
