@@ -1,80 +1,79 @@
-# Code Review Report
+# Отчёт по код-ревью
 
-Date: 2026-02-13
-Repository: `bidb97/laravel-query-explain`
+Дата: 2026-02-13  
+Репозиторий: `bidb97/laravel-query-explain`
 
-## Scope
+## Область проверки
 
-Reviewed package bootstrap, routing, middleware wiring, AST tooling, DTO/VO layer, and controller/service integration.
+Проверены: bootstrap пакета, маршруты, middleware, AST-инструменты, слой DTO/VO, интеграция контроллеров и сервисов.
 
-## Summary
+## Краткий итог
 
-The package currently has **multiple release-blocking defects** that prevent installation and/or runtime execution:
+Сейчас в пакете есть **несколько блокирующих проблем**, из-за которых установка и/или выполнение ломаются:
 
-1. A hard parse error in `Analyzer.php`.
-2. Widespread namespace drift (`explain\src\...`) that does not match Composer PSR-4 autoload (`Bidb97\QueryExplain\...`).
-3. Route and config class references use incorrect namespaces, so controller/middleware resolution will fail.
-4. Several classes type-hint unresolved symbols from the wrong namespace.
-5. Incomplete dead method (`Finder::getQuery`) and other quality gaps.
-
----
-
-## Findings
-
-### 1) **Critical**: Parse error in analyzer import list
-- `src/Tools/Analyzer.php` contains an invalid `use` statement (`packages\laraveluse packages\laraveluse ...`) that causes immediate parse failure.
-- Evidence: `php -l src/Tools/Analyzer.php` fails with syntax error.
-
-**Impact**: Package cannot be loaded where this file is parsed.
-
-### 2) **Critical**: Namespace mismatch across the package
-- Many files import or reference classes under `explain\src\...` even though Composer autoload maps only `Bidb97\QueryExplain\`.
-- Affected examples include manager, finder, analyzer, VO classes, controller, routes, and config.
-
-**Impact**: Class resolution/type-hinting fails at runtime; service container injection and route/controller wiring break.
-
-### 3) **Critical**: Route/controller binding uses wrong namespace
-- `routes/web.php` references `explain\src\Http\Controllers\QueryExplainController` instead of package namespace.
-
-**Impact**: Route target class not found when route is resolved.
-
-### 4) **Critical**: Middleware config points to wrong class
-- `config/query-explain.php` points middleware to `explain\src\Http\Middleware\Authorize::class`.
-
-**Impact**: Middleware class cannot be resolved from config during route registration/execution.
-
-### 5) **High**: Query manager imports wrong DTO/tool classes
-- `src/Services/QueryExplainManager.php` imports `explain\src\Tools\Analyzer`, `explain\src\Tools\Finder`, and `explain\src\DTO\Query`.
-
-**Impact**: Constructor DI and return types refer to unresolved classes.
-
-### 6) **Medium**: Incomplete/unused method in finder
-- `src/Tools/Finder.php` contains an empty `getQuery()` method with no implementation.
-
-**Impact**: Dead API surface and maintainability concern; can mislead users and future contributors.
-
-### 7) **Medium**: VO layer depends on wrong namespaced interfaces/enums
-- `Root` and `Execute` reference `explain\src\...` types throughout properties, constructor params, and match expressions.
-
-**Impact**: Domain object creation and behavior fail if autoload cannot resolve those types.
+1. Критическая синтаксическая ошибка в `Analyzer.php`.
+2. Массовое расхождение namespace (`explain\src\...`) с PSR-4 autoload (`Bidb97\QueryExplain\...`).
+3. Неверные namespace в ссылках на контроллер и middleware в маршрутах/конфиге.
+4. Типы и импорты в ряде классов указывают на несуществующие классы.
+5. Пустой незавершённый метод `Finder::getQuery()`.
 
 ---
 
-## Recommended Fix Plan (ordered)
+## Найденные проблемы
 
-1. **Fix syntax error first** in `Analyzer.php` so static checks can proceed.
-2. **Global namespace normalization** from `explain\src\...` to `Bidb97\QueryExplain\...` for all package files.
-3. Re-run:
-   - `php -l` for all PHP files,
-   - package smoke test (`composer dump-autoload` + basic instantiation in testbench).
-4. Remove or implement `Finder::getQuery()`.
-5. Add CI checks:
-   - lint (`php -l` via script),
-   - static analysis (PHPStan/Psalm),
-   - minimal package integration tests with Orchestra Testbench.
+### 1) **Critical**: синтаксическая ошибка в `Analyzer`
+- В `src/Tools/Analyzer.php` есть некорректный `use`: `packages\laraveluse packages\laraveluse ...`.
+- Проверка `php -l` падает с parse error.
 
-## Validation commands run during review
+**Влияние:** файл не парсится, функциональность анализатора недоступна.
+
+### 2) **Critical**: неправильные namespace по проекту
+- Во многих файлах используются ссылки на `explain\src\...`, хотя в `composer.json` PSR-4 задан как `Bidb97\QueryExplain\`.
+- Это встречается в manager/finder/analyzer, VO, контроллере, маршрутах и конфиге.
+
+**Влияние:** DI, автозагрузка и разрешение классов ломаются во время выполнения.
+
+### 3) **Critical**: маршруты указывают на неправильный контроллер
+- `routes/web.php` использует `explain\src\Http\Controllers\QueryExplainController`.
+
+**Влияние:** роуты не смогут разрешить target-класс контроллера.
+
+### 4) **Critical**: middleware в конфиге указывает на несуществующий класс
+- `config/query-explain.php` содержит `explain\src\Http\Middleware\Authorize::class`.
+
+**Влияние:** middleware не резолвится, маршрутная группа может падать при инициализации/обработке.
+
+### 5) **High**: неверные импорты в `QueryExplainManager`
+- `src/Services/QueryExplainManager.php` импортирует `explain\src\Tools\Analyzer`, `explain\src\Tools\Finder`, `explain\src\DTO\Query`.
+
+**Влияние:** типы конструктора/возврата ссылаются на несуществующие классы.
+
+### 6) **Medium**: пустой метод `Finder::getQuery()`
+- В `src/Tools/Finder.php` объявлен, но не реализован `getQuery()`.
+
+**Влияние:** мёртвый API, вводит в заблуждение и ухудшает поддерживаемость.
+
+### 7) **Medium**: VO-слой завязан на неправильные namespace
+- `Root` и `Execute` используют `explain\src\...` в type-hint и внутренней логике.
+
+**Влияние:** доменные объекты не работают при стандартной автозагрузке пакета.
+
+---
+
+## Рекомендованный план исправлений (по порядку)
+
+1. Сначала исправить parse error в `Analyzer.php`.
+2. Привести namespace во всём пакете к `Bidb97\QueryExplain\...`.
+3. Повторно прогнать проверки:
+   - `php -l` по всем PHP-файлам,
+   - smoke-тест пакета (`composer dump-autoload` + простая проверка через Testbench).
+4. Удалить или реализовать `Finder::getQuery()`.
+5. Добавить quality gates в CI:
+   - lint,
+   - статанализ (PHPStan/Psalm),
+   - минимальные интеграционные тесты (Orchestra Testbench).
+
+## Команды, выполненные в рамках ревью
 
 - `for f in $(rg --files src config routes resources/views README.md); do if [[ $f == *.php ]]; then php -l "$f" || true; fi; done`
 - `rg -n 'explain\\src|packages\\laraveluse|getQuery\(\)' src`
-
